@@ -70,14 +70,39 @@ Texture2D g_texture2;
 SamplerState g_sampler;
 
 // The vertex shader entry point. This function takes a single vertex and transforms it for the rasteriser.
-void VSMain(const VSInput input, out PSInput output)
-{
-	output.pos = mul(input.pos, g_WVP);
+void VSMain(const VSInput input, out PSInput output){
+
+//need to use the sin and cos to create a wave like movement
+float newY = input.pos.y +(sin(input.pos.y + g_frameCount/6));
+float newX = input.pos.x + (sin(input.pos.x + g_frameCount / 6));
+
+
+float4 newPosition = { newX, newY, input.pos.z, input.pos.w };
+
+	output.pos = mul(newPosition, g_WVP);
 	output.colour = input.colour;
+	output.normal = input.normal;   // added as it was not 
 }
 
 // The pixel shader entry point. This function writes out the fragment/pixel colour.
 void PSMain(const PSInput input, out PSOutput output)
 {
-	output.colour = input.colour;	// 'return' the colour value for this fragment.
+
+	float3 finalColour;
+	 
+	 for (int i = 0; i < g_numLights; i++) {
+		 float4 dir =  g_lightDirections[i];
+		 float3 colour = g_lightColours[i];
+		 //float intensity = cos(dot(input.normal, dir)); 
+		 
+		 float intensity = dot(input.normal, dir); //
+		 intensity = clamp(intensity, 0.0f, 1.0f);
+
+		 finalColour += colour * intensity;
+
+	}
+
+		 output.colour = float4(finalColour.r, finalColour.g, finalColour.b,1);	// don't need to specify rbg but, have done so to make it more 
+		//output.colour = input.colour;	// 'return' the colour value for this fragment.
+
 }
