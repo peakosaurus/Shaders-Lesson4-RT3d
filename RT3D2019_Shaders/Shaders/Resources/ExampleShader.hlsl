@@ -73,15 +73,25 @@ SamplerState g_sampler;
 void VSMain(const VSInput input, out PSInput output){
 
 //need to use the sin and cos to create a wave like movement
-float newY = input.pos.y +(sin(input.pos.y + g_frameCount/6));
-float newX = input.pos.x + (sin(input.pos.x + g_frameCount / 6));
+float newY = input.pos.y +(sin(input.pos.y + g_frameCount/8));
+float newX = input.pos.x + (sin(input.pos.x + g_frameCount/8));
 
 
 float4 newPosition = { newX, newY, input.pos.z, input.pos.w };
 
 	output.pos = mul(newPosition, g_WVP);
-	output.colour = input.colour;
-	output.normal = input.normal;   // added as it was not 
+	//output.colour = input.colour;
+	output.normal = input.normal;   // added as it was not being output befoer
+	output.tex = input.tex;
+
+	float matMapX = input.pos.x / 1024 + 0.5; // to clamp the position between 0-1  Map ranges in -512 to +512
+	float matMapZ = 1-(input.pos.z / 1024 + 0.5) ; // flipping the Z to match the map with the terrain
+	float2 newXZ = { matMapX, matMapZ };
+
+
+	output.mat = g_materialMap.SampleLevel(g_sampler, newXZ, 0);
+	output.colour = g_materialMap.SampleLevel(g_sampler, newXZ , 0);
+
 }
 
 // The pixel shader entry point. This function writes out the fragment/pixel colour.
@@ -93,16 +103,29 @@ void PSMain(const PSInput input, out PSOutput output)
 	 for (int i = 0; i < g_numLights; i++) {
 		 float4 dir =  g_lightDirections[i];
 		 float3 colour = g_lightColours[i];
-		 //float intensity = cos(dot(input.normal, dir)); 
-		 
-		 float intensity = dot(input.normal, dir); //
-		 intensity = clamp(intensity, 0.0f, 1.0f);
+		 float intensity = cos(dot(input.normal, dir)); 
 
 		 finalColour += colour * intensity;
 
 	}
+		
+	 float4 texture0 = g_texture0.Sample(g_sampler, input.tex);
+	 float4 texture1 = g_texture1.Sample(g_sampler, input.tex);
+	 float4 texture2 = g_texture2.Sample(g_sampler, input.tex);
 
-		 output.colour = float4(finalColour.r, finalColour.g, finalColour.b,1);	// don't need to specify rbg but, have done so to make it more 
-		//output.colour = input.colour;	// 'return' the colour value for this fragment.
+	 float4 finalTextureColour = { 0,0,0,1 }; // paint it black
 
+	 finalTextureColour = lerp(finalTextureColour, texture0, input.mat.r); // the percentage of red 
+	 finalTextureColour = lerp(finalTextureColour, texture1, input.mat.g); // green
+	 finalTextureColour = lerp(finalTextureColour, texture2, input.mat.b); // blue
+
+
+
+
+		
+
+	// output.colour = float4(finalColour.r, finalColour.g, finalColour.b,1);	// don't need to specify rbg but, have done so to make it more 
+	//output.colour = input.colour;	// 'return' the colour value for this fragment.
+
+	 output.colour = finalTextureColour;
 }
